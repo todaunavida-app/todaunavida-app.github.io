@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Toda una vida · Privacidad y normas</title>
+<script src="config.js"></script>
+<style>
+@font-face{font-family:"Newsreader";font-weight:400;src:url(fonts/newsreader-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Figtree";font-weight:400;src:url(fonts/figtree-latin-400-normal.woff2) format("woff2")}
+:root{--paper:#161616;--ink:#e4e4e0;--soft:#9a9a96;--line:#333331;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:light){:root{--paper:#f4f4f2;--ink:#262626;--soft:#6b6b67;--line:#d6d6d2}}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Figtree",system-ui,-apple-system,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+main{max-width:640px;margin:0 auto;padding:24px 20px 60px}
+h1{font-family:"Newsreader",Georgia,serif;font-weight:400;font-size:32px;line-height:1.2;margin:10px 0 6px}
+h2{font-family:"Newsreader",Georgia,serif;font-weight:400;font-size:22px;margin:32px 0 6px}
+p,li{font-size:16px}p.s{color:var(--soft);font-size:14px}
+a{color:var(--ink)}ul{padding-left:20px}
+.back{display:inline-block;color:var(--soft);text-decoration:none;font-size:15px;padding:6px 0}
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="index.html">← Volver a la app</a>
+<h1>Privacidad y normas de las cartas</h1>
+<p class="s">Última actualización: septiembre de 2026</p>
+
+<h2>Lo que se queda solo en tu móvil</h2>
+<p>Tu nombre, las vidas que acompañas, sus bocetos, tus ajustes y las cartas que has leído se guardan únicamente en tu teléfono. No los enviamos a ningún sitio. Si borras la app, o usas «Borrar todo y empezar de cero» en Ajustes, desaparecen.</p>
+
+<h2>Lo que se envía cuando escribes una carta</h2>
+<p>Solo cuando decides enviar una carta se guarda en nuestro servidor:</p>
+<ul>
+<li>El texto de la carta.</li>
+<li>La ciudad y la edad que pusiste al registrarte, para firmarla como «Alguien de tu ciudad, tu edad».</li>
+<li>Un código aleatorio del móvil, sin relación con tu nombre ni tu número, que sirve para no enviarte tus propias cartas y para que otros puedan bloquearte si incumples las normas.</li>
+</ul>
+<p>Tu nombre nunca sale del móvil. No usamos publicidad, ni rastreadores, ni vendemos datos. Las cartas se guardan en Supabase, nuestro proveedor de base de datos.</p>
+
+<h2>Normas de las cartas</h2>
+<p>Las cartas son anónimas y las leen personas de todas las edades, así que no se permite:</p>
+<ul>
+<li>Insultos, acoso, odio o amenazas.</li>
+<li>Contenido sexual o violento.</li>
+<li>Datos personales: teléfonos, correos, direcciones, redes sociales o enlaces.</li>
+<li>Publicidad o spam.</li>
+</ul>
+<p>Un filtro automático bloquea muchas de estas cartas antes de enviarlas. Si recibes una que incumple las normas, pulsa «Denunciar esta carta»: deja de enviarse y la revisamos. También puedes pulsar «No recibir más cartas de esta persona». Podemos borrar cualquier carta que incumpla las normas sin avisar.</p>
+
+<h2>Menores de edad</h2>
+<p>Si tienes menos de 14 años, necesitas el permiso de tu madre, padre o tutor para usar la app y enviar cartas. Nunca compartas en una carta datos que permitan encontrarte.</p>
+
+<h2>Tus derechos</h2>
+<p>Puedes pedir que borremos las cartas que hayas enviado, o preguntarnos cualquier cosa, escribiendo a <a id="mail" href="#">nuestro correo de contacto</a>. Te responderemos en un plazo máximo de 30 días.</p>
+</main>
+<script>
+const m=(window.APP_CONFIG||{}).contactEmail;const a=document.getElementById('mail');if(m){a.textContent=m;a.href='mailto:'+m}
+</script>
+</body>
+</html>
