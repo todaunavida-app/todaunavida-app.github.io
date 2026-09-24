@@ -73,6 +73,12 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,#dial:focus-visi
 #dial{width:168px;height:168px;touch-action:none;cursor:grab;border-radius:50%}
 #dial text{fill:var(--graphite)}
 .btn{display:block;width:100%;font-weight:600;font-size:16px;padding:14px;border-radius:12px;border:0;background:var(--btn);color:var(--btn-ink);cursor:pointer;margin-top:10px}
+.plus{font-family:var(--hand);font-size:.95em;margin-left:6px;opacity:.75}
+.lockd{opacity:.55}
+.pkg{display:flex;justify-content:space-between;align-items:center;width:100%;font-size:17px;padding:16px 18px;border-radius:14px;border:1px solid var(--line);background:transparent;cursor:pointer;margin-top:10px;color:inherit}
+.pkg span{text-align:left}
+.pkg small{color:var(--soft);font-size:13px;display:block;margin-top:2px;text-align:left}
+.pkg b{font-weight:600}
 .btn.ghost{background:transparent;color:var(--graphite);border:1px solid var(--line);font-weight:500}
 .links{display:flex;justify-content:center;gap:18px;margin-top:8px;flex-wrap:wrap}
 .link{background:none;border:0;color:var(--soft);font-size:14px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px}
@@ -1108,6 +1114,48 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtHrs=ms=>String(Math.round(ms/360000)/10).replace('.',',');
 
+/* ================= Toda una vida+ (compras con RevenueCat) ================= */
+const FREE_PLACES=['ciudad','campo'],FREE_LIVES=3,ENT='plus';
+const Plus={native:false,ready:false,P:null,
+ has(){return !!S.plus},
+ async init(){
+  const C=window.Capacitor,key=(window.APP_CONFIG||{}).revenuecatKey||'';
+  this.native=!!(C&&C.isNativePlatform&&C.isNativePlatform());
+  if(!this.native||!key||key.includes('PEGA_AQUI'))return;
+  try{this.P=C.registerPlugin('Purchases');await this.P.configure({apiKey:key});this.ready=true;
+   const r=await this.P.getCustomerInfo();this.apply(r.customerInfo)}catch(e){}
+ },
+ apply(ci){const on=!!(ci&&ci.entitlements&&ci.entitlements.active&&ci.entitlements.active[ENT]);if(on!==!!S.plus){S.plus=on;save()}return on},
+ async packages(){if(!this.ready)return[];const o=await this.P.getOfferings();return (o&&o.current&&o.current.availablePackages)||[]},
+ async buy(pkg){const r=await this.P.purchasePackage({aPackage:pkg});return this.apply(r.customerInfo)},
+ async restore(){const r=await this.P.restorePurchases();return this.apply(r.customerInfo)}
+};
+const cancelled=e=>!!(e&&(e.userCancelled||e.code==='1'||e.code===1||/cancel/i.test(e.message||'')));
+function plusPage(why,onDone){
+ const ret=()=>onDone?onDone():back();
+ const perks=[['Dos lugares más','El mar y la montaña, con su música y sus paisajes.'],['Elige su forma de ser','Tranquilo, soñador, valiente, tímido, alegre o rebelde. Cambia lo que le pasa en la vida.'],['Todas tus vidas, para siempre','Sin plus se ven las '+FREE_LIVES+' últimas. Con plus, el álbum entero.'],['Apoyas la app','Toda una vida la hace una sola persona, sin anuncios. Así puede seguir creciendo.']];
+ openPage(`<h2>Toda una vida<span class="plus">+</span></h2>${why?`<p class="sub">${why}</p>`:''}
+  ${S.plus?`<p class="sub">Ya tienes Toda una vida+. Gracias por apoyar la app.</p>`:''}
+  <ul class="list">${perks.map(([t,d])=>`<li><div class="t">${t}</div><div class="d">${d}</div></li>`).join('')}</ul>
+  <div id="pkgs">${S.plus?'':Plus.ready?'<p class="sub" style="margin-top:18px">Cargando precios…</p>':`<p class="sub" style="margin-top:18px">${Plus.native?'Las compras no están disponibles ahora mismo. Prueba más tarde.':'Toda una vida+ se consigue desde la app de iPhone.'}</p>`}</div>
+  <p class="sub" id="pErr" style="color:#d2694f"></p>
+  ${Plus.ready?'<button class="btn ghost" id="pRes">Restaurar compras</button>':''}
+  <p class="sub" style="font-size:12px;margin-top:18px">Las suscripciones se renuevan solas hasta que las canceles, como mínimo 24 horas antes de que acabe el periodo, en Ajustes → tu nombre → Suscripciones. El pago se carga a tu cuenta de Apple. <a href="${esc((window.APP_CONFIG||{}).termsUrl||'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}" style="color:inherit">Condiciones de uso</a> · <a href="privacidad.html" style="color:inherit">Privacidad</a></p>
+  <button class="btn" id="bk" style="margin-top:18px">Volver</button>`);
+ $('bk').onclick=ret;
+ const err=m=>{$('pErr').textContent=m||''};
+ if(Plus.ready)$('pRes').onclick=async()=>{err('');try{const ok=await Plus.restore();ok?plusPage(why,onDone):err('No hemos encontrado ninguna compra en esta cuenta de Apple.')}catch(e){err('No se ha podido restaurar. Prueba más tarde.')}};
+ if(!S.plus&&Plus.ready)Plus.packages().then(ps=>{if(!$('pkgs'))return;
+  if(!ps.length){$('pkgs').innerHTML='<p class="sub" style="margin-top:18px">Las compras no están disponibles ahora mismo. Prueba más tarde.</p>';return}
+  const name={MONTHLY:['Mensual','Se renueva cada mes'],ANNUAL:['Anual','Se renueva cada año. Sale más barato'],LIFETIME:['Para siempre','Un solo pago']};
+  $('pkgs').innerHTML=ps.map((p,i)=>{const [t,d]=name[p.packageType]||[p.product.title,''];return `<button class="pkg" data-i="${i}"><span>${t}<small>${d}</small></span><b>${esc(p.product.priceString)}</b></button>`}).join('');
+  $('pkgs').querySelectorAll('.pkg').forEach(b=>b.onclick=async()=>{err('');$('pkgs').querySelectorAll('.pkg').forEach(x=>x.disabled=true);
+   try{const ok=await Plus.buy(ps[+b.dataset.i]);if(ok)plusPage('Ya tienes Toda una vida+. Gracias por apoyar la app.',onDone)}
+   catch(e){if(!cancelled(e))err('No se ha podido completar la compra. No se te ha cobrado nada.')}
+   if($('pkgs'))$('pkgs').querySelectorAll('.pkg').forEach(x=>x.disabled=false)})
+ }).catch(()=>{if($('pkgs'))$('pkgs').innerHTML='<p class="sub" style="margin-top:18px">Las compras no están disponibles ahora mismo. Prueba más tarde.</p>'});
+}
+
 /* ================= tiempo ================= */
 const sessEl=()=>S.session?Math.min((Date.now()-S.session.start)*S.speed,S.session.dur):0;
 const lifeMs=()=>S.life?S.life.studied+sessEl():0;
@@ -1218,11 +1266,12 @@ function menu(){origin='menu';stopMusic();
    <button class="opt" id="mNew" style="text-align:center">Nueva vida</button>
    <button class="opt" id="mLives" style="text-align:center">Vidas anteriores</button>
    <button class="opt" id="mSet" style="text-align:center">Ajustes</button>
+   <button class="opt" id="mPlus" style="text-align:center;border-style:${S.plus?'solid':'dashed'}">${S.plus?'Tienes Toda una vida<span class="plus">+</span>':'Toda una vida<span class="plus">+</span>'}</button>
   </div></div>`);
  try{const t=$('mTitle'),w=t.getComputedTextLength();if(w>420)t.style.fontSize=(84*420/w)+'px'}catch(e){}
  if(S.life)$('mCont').onclick=cont;
  $('mNew').onclick=()=>{if(!S.life)return createPage();ask(`Si empiezas una vida nueva, ${S.life.name} no terminará la suya.`,'Empezar otra vida',()=>{endLife();createPage()})};
- $('mLives').onclick=livesPage;$('mSet').onclick=settingsPage;
+ $('mLives').onclick=livesPage;$('mSet').onclick=settingsPage;$('mPlus').onclick=()=>plusPage();
 }
 function cont(){origin='main';closePage();shownIdx=-1;Walk.clear();goHome();refresh();
  if(S.session){$('homeCtl').classList.add('hidden');$('sessCtl').classList.remove('hidden');$('musicTog').setAttribute('aria-pressed',S.musicOn);upd()}
@@ -1260,17 +1309,24 @@ function createStep(k){
   const go=()=>{const v=$('nm').value.trim();if(!v)return $('nm').focus();draft.name=v;createStep(2)};$('nmN').onclick=go;$('nm').onkeydown=e=>{if(e.key==='Enter')go()};setTimeout(()=>$('nm')?.focus(),300)}
  if(k===2){stepPage(`${dots(5,2)}<p class="q">¿Qué quiere hacer con su vida?</p><p class="qs">Cada objetivo tiene diez caminos distintos. No sabrás cuál le tocará.</p><div class="opts">${Object.entries(GOALS).map(([v,l])=>`<button class="opt" data-v="${v}" aria-pressed="${draft.goal===v}">${l}</button>`).join('')}</div>`,back);
   pick1('.opt',v=>{draft.goal=v;setTimeout(()=>createStep(3),180)})}
- if(k===3){stepPage(`${dots(5,3)}<p class="q">¿Qué música os acompañará?</p><p class="qs">Toca una para escucharla. También marca el lugar donde vivirá.</p><div class="opts">${Object.entries(MUSICS).map(([v,[l,s]])=>`<button class="opt" data-v="${v}" aria-pressed="${draft.place===v}">${l}<small>${s}</small></button>`).join('')}</div><button class="btn${draft.place?'':' hidden'}" id="born">Siguiente</button>`,back);
-  pick1('.opt',(v,b)=>{draft.place=v;$('pageIn').querySelectorAll('.opt').forEach(x=>x.setAttribute('aria-pressed',x===b));preview(v);$('born').classList.remove('hidden')});
-  $('born').onclick=()=>{stopMusic();createStep(4)}}
+ if(k===3){stepPage(`${dots(5,3)}<p class="q">¿Qué música os acompañará?</p><p class="qs">Toca una para escucharla. También marca el lugar donde vivirá.</p><div class="opts">${Object.entries(MUSICS).map(([v,[l,s]])=>{const lk=!S.plus&&!FREE_PLACES.includes(v);return `<button class="opt" data-v="${v}" aria-pressed="${draft.place===v}">${l}${lk?'<span class="plus">+</span>':''}<small>${s}${lk?'. Con Toda una vida+':''}</small></button>`}).join('')}</div><button class="btn${draft.place?'':' hidden'}" id="born">Siguiente</button>`,back);
+  const lockedPlace=v=>!S.plus&&!FREE_PLACES.includes(v);
+  const setBorn=()=>{const lk=lockedPlace(draft.place);$('born').textContent=lk?'Desbloquear con Toda una vida+':'Siguiente'};
+  if(draft.place)setBorn();
+  pick1('.opt',(v,b)=>{draft.place=v;$('pageIn').querySelectorAll('.opt').forEach(x=>x.setAttribute('aria-pressed',x===b));preview(v);$('born').classList.remove('hidden');setBorn()});
+  $('born').onclick=()=>{stopMusic();if(lockedPlace(draft.place))return plusPage('Vivir junto al mar o en la montaña es parte de Toda una vida+. Puedes seguir gratis eligiendo la ciudad o el campo.',()=>createStep(3));createStep(4)}}
  if(k===4){draft.hours=draft.hours||S.hours;
   stepPage(`${dots(5,4)}<p class="q">Los tiempos</p><p class="qs">Gira la rueda para elegir cuánto durará cada sesión de estudio.</p><div class="dialwrap"><svg id="dial2" viewBox="0 0 200 200" role="slider" tabindex="0" aria-label="Duración de cada sesión" aria-valuemin="5" aria-valuemax="180" style="width:190px;height:190px;touch-action:none;cursor:grab;border-radius:50%"></svg></div>
   <p class="qs" style="margin:26px 0 12px">¿Y cuántas horas de estudio durará su vida entera?</p><div class="opts two" id="hrs2">${HOURS.map(([h,l,d])=>`<button class="opt" data-v="${h}" aria-pressed="${h===draft.hours}" style="padding:16px 6px;font-size:17px">${l}<small>${d}</small></button>`).join('')}</div>
+  <p class="qs" style="margin:26px 0 12px">¿Cómo será su forma de ser?${S.plus?'':' <span class="plus">+</span>'}</p><div class="chips" id="pers2">${[['',S.plus?'Al azar':'Al azar (gratis)'],...Object.entries(PERS)].map(([v,l])=>`<button type="button" class="chip${!S.plus&&v?' lockd':''}" data-v="${v}" aria-pressed="${(draft.pers||'')===v}">${l}</button>`).join('')}</div>
   <button class="btn" id="go">Empezar su vida</button>`,back);
+  $('pers2').onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;const v=b.dataset.v;
+   if(v&&!S.plus)return plusPage('Con Toda una vida+ eliges su forma de ser. Sin plus, la vida decide por ti.',()=>createStep(4));
+   draft.pers=v||undefined;$('pers2').querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed',x===b))};
   const d2=$('dial2');drawDial(d2);bindDial(d2);
   $('hrs2').onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;draft.hours=+b.dataset.v;$('hrs2').querySelectorAll('.opt').forEach(x=>x.setAttribute('aria-pressed',x===b))};
   $('go').onclick=()=>{const P=Object.keys(PERS);S.hours=draft.hours;
-   const L=Object.assign({},draft,{pers:P[Math.floor(Math.random()*P.length)],beard:draft.gender==='m'&&Math.random()<.45,studied:0,sessions:0,lived:[],finalAge:82+Math.floor(Math.random()*11),born:Date.now()});
+   const L=Object.assign({},draft,{pers:(S.plus&&draft.pers&&PERS[draft.pers])?draft.pers:P[Math.floor(Math.random()*P.length)],beard:draft.gender==='m'&&Math.random()<.45,studied:0,sessions:0,lived:[],finalAge:82+Math.floor(Math.random()*11),born:Date.now()});
    L.story=buildStory(L);S.life=L;S.session=null;draft={};save();cont()}}
 }
 function createPage(){draft={};createStep(0)}
@@ -1280,8 +1336,8 @@ function bindThumbs(L){drawStills(L);$('pageIn').querySelectorAll('.sk').forEach
 $('viewerWrap').onclick=e=>{if(e.target.id==='viewerWrap')$('viewerWrap').classList.add('hidden')};
 $('openStory').onclick=()=>{const L=S.life;openPage(`<h2>La historia de ${esc(L.name)}</h2><p class="sub">Su objetivo: ${GOALS[L.goal].toLowerCase()}.</p>${thumbs(L,[...L.lived].reverse())}<button class="btn ghost" id="bk">Volver</button>`);bindThumbs(L);$('bk').onclick=closePage};
 $('openMenu').onclick=menu;
-function livesPage(){openPage(`<h2>Vidas anteriores</h2><p class="sub">Cada vida que acompañas hasta el final se queda aquí, con su historia, sus logros y la carta que escribiste.</p>${S.lives.length?`<ul class="list">${S.lives.map((l,i)=>`<li><button data-l="${i}"><div class="t">${esc(l.name)}</div><div class="d">${GOALS[l.goal]}. Vivió ${l.finalAge} años, ${l.hrs} h de estudio juntos.</div></button></li>`).join('')}</ul>`:`<p class="sub">Todavía no has acompañado ninguna vida completa${S.life?`. ${esc(S.life.name)} será la primera`:''}.</p>`}${S.outbox.length?`<h3>Cartas que has enviado</h3>${S.outbox.map(l=>`<div class="letterbox" style="margin-bottom:10px">${esc(l.text)}\n\n— ${esc(l.from)}</div>`).join('')}`:''}<button class="btn ghost" id="bk">Volver</button>`);
- $('bk').onclick=back;$('pageIn').querySelectorAll('[data-l]').forEach(b=>b.onclick=()=>lifePage(S.lives[+b.dataset.l]))}
+function livesPage(){openPage(`<h2>Vidas anteriores</h2><p class="sub">Cada vida que acompañas hasta el final se queda aquí, con su historia, sus logros y la carta que escribiste.</p>${S.lives.length?`<ul class="list">${S.lives.map((l,i)=>{const lk=!S.plus&&i>=FREE_LIVES;return `<li${lk?' class="lockd"':''}><button data-l="${i}"><div class="t">${esc(l.name)}${lk?'<span class="plus">+</span>':''}</div><div class="d">${lk?'Guardada. Se ve con Toda una vida+.':`${GOALS[l.goal]}. Vivió ${l.finalAge} años, ${l.hrs} h de estudio juntos.`}</div></button></li>`}).join('')}</ul>`:`<p class="sub">Todavía no has acompañado ninguna vida completa${S.life?`. ${esc(S.life.name)} será la primera`:''}.</p>`}${S.outbox.length?`<h3>Cartas que has enviado</h3>${S.outbox.map(l=>`<div class="letterbox" style="margin-bottom:10px">${esc(l.text)}\n\n— ${esc(l.from)}</div>`).join('')}`:''}<button class="btn ghost" id="bk">Volver</button>`);
+ $('bk').onclick=back;$('pageIn').querySelectorAll('[data-l]').forEach(b=>b.onclick=()=>{const i=+b.dataset.l;if(!S.plus&&i>=FREE_LIVES)return plusPage(`Todas tus vidas siguen guardadas. Sin plus se ven las ${FREE_LIVES} últimas; con Toda una vida+, el álbum entero.`,livesPage);lifePage(S.lives[i])})}
 function lifePage(L){const lg=L.story.filter(e=>e.logro);
  openPage(`<h2>${esc(L.name)}</h2><p class="sub">${GOALS[L.goal]}. Personalidad: ${PERS[L.pers].toLowerCase()}. Vivió ${L.finalAge} años. Estudiasteis juntos ${L.hrs} horas en ${L.sessions} ${L.sessions===1?'sesión':'sesiones'}.</p><div class="portrait"><canvas aria-hidden="true"></canvas></div>
  <h3>Sus logros</h3><ul class="list logros">${lg.map(e=>`<li>${esc(e.text)}</li>`).join('')}</ul>
@@ -1302,6 +1358,9 @@ function settingsPage(){
  <p class="sub" style="margin-top:8px">Lo normal es tiempo real. Los modos rápidos sirven para probar la app y ver una vida entera en pocos minutos.</p>
  ${row('tWake','Pantalla siempre encendida','Durante las sesiones, para ver cómo crece',S.autoWake)}
  ${row('tNight','Modo noche','También puedes cambiarlo con el botón de arriba',document.documentElement.getAttribute('data-theme')==='dark')}
+ <h3>Toda una vida<span class="plus">+</span></h3>
+ <p class="sub" style="margin:0 0 8px">${S.plus?'Tienes Toda una vida+. Gracias por apoyar la app.':'Dos lugares más, elegir su forma de ser y todas tus vidas guardadas.'}</p>
+ <button class="btn ghost" id="sPlus" style="margin-top:0">${S.plus?'Ver Toda una vida+':'Conocer Toda una vida+'}</button>
  <h3>Tus datos</h3>
  <p class="sub" style="margin:0 0 8px">${esc(S.me.name)}, ${S.me.age} años, ${esc(S.me.city)}. Tus cartas se firman como «Alguien de ${esc(S.me.city)}, ${S.me.age} años».</p>
  <button class="btn ghost" id="ed" style="margin-top:0">Cambiar mis datos</button>
@@ -1323,6 +1382,7 @@ function settingsPage(){
  if(S.life)$('rs').onclick=()=>ask(`${S.life.name} no terminará su vida y no se guardará en «Vidas anteriores».`,`Despedirme de ${S.life.name}`,()=>{endLife();menu()});
  $('wipe').onclick=()=>ask('Se borrarán tus datos, la vida actual, todas tus vidas anteriores y las cartas que has escrito. No se puede deshacer.','Borrar todo',()=>{endLife();try{localStorage.removeItem(KEY)}catch(e){}location.reload()});
  $('priv').onclick=()=>{location.href='privacidad.html'};
+ $('sPlus').onclick=()=>plusPage(null,settingsPage);
  $('bk').onclick=back}
 $('openSettings').onclick=settingsPage;
 
@@ -1370,6 +1430,7 @@ $('wSend').onclick=async()=>{const t=$('wText').value.trim();$('wErr').textConte
  $('wSend').disabled=false;S.outbox.unshift(l);save();$('writeWrap').classList.add('hidden');setTimeout(afterSession,300);$('note').textContent='Tu carta ya está en camino.';setTimeout(()=>{if($('note').textContent==='Tu carta ya está en camino.')$('note').textContent=''},6000)};
 async function flushPending(){if(!online||!S.pending.length)return;const q=[...S.pending];S.pending=[];for(const l of q){try{await sendLetter(l)}catch(e){if(!/limite_diario/.test(e.message))S.pending.push(l)}}save()}
 setTimeout(flushPending,3000);
+Plus.init();
 
 /* ================= final de la vida ================= */
 function farewell(){const L=S.life;L.hrs=fmtHrs(L.studied);const lg=L.story.filter(e=>e.logro);
